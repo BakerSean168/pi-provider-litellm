@@ -591,7 +591,7 @@ describe("reduceModelGroup", () => {
     expect(reduceModelGroup(deployments, resolveCatalog)?.vision).toBe(expected);
   });
 
-  it("uses the smaller valid router and catalog limit", () => {
+  it("uses authoritative router limits ahead of catalog limits", () => {
     const router = row({
       model_info: { id: "router", mode: "chat", max_input_tokens: 300_000, max_output_tokens: 100_000 },
     });
@@ -601,7 +601,7 @@ describe("reduceModelGroup", () => {
       maxTokens: 64_000,
     });
 
-    expect(reduceModelGroup([router], catalog)).toMatchObject({ contextWindow: 200_000, maxTokens: 64_000 });
+    expect(reduceModelGroup([router], catalog)).toMatchObject({ contextWindow: 300_000, maxTokens: 100_000 });
   });
 
   it("resolves deployment limits before taking the safe group minimum", () => {
@@ -1681,7 +1681,7 @@ describe("upstream reduction regressions", () => {
     expect(reduceModelGroup([chat, unsupported], resolveCatalog)).toBeUndefined();
   });
 
-  it("takes the smaller valid limit when explicit and public catalog values disagree", () => {
+  it("prefers explicit deployment limits over public catalog limits", () => {
     const largerExplicit = row({
       model_info: { id: "larger-explicit", mode: "chat", max_input_tokens: 300_000, max_output_tokens: 80_000 },
     });
@@ -1690,10 +1690,24 @@ describe("upstream reduction regressions", () => {
     });
 
     expect(reduceModelGroup([largerExplicit], resolveCatalog)).toMatchObject({
-      contextWindow: 200_000,
-      maxTokens: 64_000,
+      contextWindow: 300_000,
+      maxTokens: 80_000,
     });
     expect(reduceModelGroup([smallerExplicit], resolveCatalog)).toMatchObject({
+      contextWindow: 100_000,
+      maxTokens: 8_000,
+    });
+  });
+
+  it("still takes the minimum explicit limit across routable deployments", () => {
+    const largerExplicit = row({
+      model_info: { id: "larger-explicit", mode: "chat", max_input_tokens: 300_000, max_output_tokens: 80_000 },
+    });
+    const smallerExplicit = row({
+      model_info: { id: "smaller-explicit", mode: "chat", max_input_tokens: 100_000, max_output_tokens: 8_000 },
+    });
+
+    expect(reduceModelGroup([largerExplicit, smallerExplicit], resolveCatalog)).toMatchObject({
       contextWindow: 100_000,
       maxTokens: 8_000,
     });
