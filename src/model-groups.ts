@@ -656,11 +656,13 @@ function min(values: readonly number[]): number {
   return Math.min(...values);
 }
 
-function conservativeLimit(explicit: number | undefined, catalog: number | undefined): number | undefined {
-  const valid = [explicitLimit(explicit), explicitLimit(catalog)].filter(
-    (value): value is number => value !== undefined,
-  );
-  return valid.length > 0 ? min(valid) : undefined;
+function authoritativeLimit(explicit: number | undefined, catalog: number | undefined): number | undefined {
+  // /model/info is the router's metadata authority. A concrete deployment can
+  // deliberately publish a newer or provider-specific limit than Pi's bundled
+  // catalog. Prefer that explicit value, then fall back to the public catalog.
+  // The reducer still takes the minimum across all routable deployments below,
+  // so mixed route groups remain conservative.
+  return explicitLimit(explicit) ?? explicitLimit(catalog);
 }
 
 function unanimous<T>(values: readonly (T | undefined)[]): T | undefined {
@@ -820,10 +822,10 @@ export function reduceModelGroup(
     (entry, index) => wireBoolean(entry.model_info?.supports_vision) ?? catalogAuthority[index]?.vision,
   );
   const contextWindowEvidence = deployments.map((entry, index) =>
-    conservativeLimit(entry.model_info?.max_input_tokens, catalogAuthority[index]?.contextWindow),
+    authoritativeLimit(entry.model_info?.max_input_tokens, catalogAuthority[index]?.contextWindow),
   );
   const maxTokensEvidence = deployments.map((entry, index) =>
-    conservativeLimit(entry.model_info?.max_output_tokens, catalogAuthority[index]?.maxTokens),
+    authoritativeLimit(entry.model_info?.max_output_tokens, catalogAuthority[index]?.maxTokens),
   );
   const reasoning = reasoningEvidence.every((value) => value ?? false);
   const explicitlyUnsupported = deployments.some(

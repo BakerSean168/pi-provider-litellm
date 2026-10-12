@@ -796,7 +796,7 @@ describe("discoverModels via /model/info", () => {
     expect(result.models[0]).toMatchObject({
       id: "kimi-k3",
       input: ["text", "image"],
-      contextWindow: 131_072,
+      contextWindow: 262_144,
       maxTokens: 16_384,
       cost: { input: 1, output: 2, cacheRead: 0.2, cacheWrite: 0.8 },
     });
